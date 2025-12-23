@@ -1,0 +1,400 @@
+# Sungrow SG5.0RS Control & Price-Aware Curtailment Package
+# This file combines all components needed for solar curtailment
+# Add to configuration.yaml:
+#   homeassistant:
+#     packages:
+#       sungrow: !include packages/sungrow_control.yaml
+
+# Manual control selector
+input_select:
+  set_sg_inverter_run_mode:
+    name: "Sungrow Inverter Run Mode"
+    options:
+      - "Enabled"
+      - "Shutdown"
+    icon: mdi:solar-power-variant
+
+# Threshold adjustment inputs
+input_number:
+  sungrow_curtailment_price_threshold_low:
+    name: "Curtail below this feed-in price"
+    min: -0.10
+    max: 0.20
+    step: 0.01
+    unit_of_measurement: "$/kWh"
+    icon: mdi:currency-usd
+    mode: box
+    initial: 0.00
+
+  sungrow_restart_price_threshold_high:
+    name: "Restart above this feed-in price"
+    min: 0.00
+    max: 0.50
+    step: 0.01
+    unit_of_measurement: "$/kWh"
+    icon: mdi:currency-usd
+    mode: box
+    initial: 0.05
+
+  sungrow_curtailment_powerwall_threshold:
+    name: "Curtail when Powerwall above"
+    min: 90
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:battery
+    mode: slider
+    initial: 99
+
+# Enable/disable automation
+input_boolean:
+  sungrow_curtailment_enabled:
+    name: "Enable Sungrow Price-Based Curtailment"
+    icon: mdi:solar-power-variant
+    initial: true
+
+automation:
+  # === CORE CONTROL: Translate input_select to modbus commands ===
+  - id: sungrow_write_run_mode_to_modbus
+    alias: "Sungrow: Write run mode to modbus"
+    description: "Sends start/stop commands to inverter via modbus register 5005"
+
+    trigger:
+      - platform: state
+        entity_id: input_select.set_sg_inverter_run_mode
+
+    action:
+      - service: modbus.write_register
+        data:
+          hub: SungrowSHx
+          slave: 1
+          address: 5005  # Register 5006 - Start/Stop Control
+          value: >
+            {% if trigger.to_state.state == "Shutdown" %}
+              206
+            {% else %}
+              207
+            {% endif %}
+
+      # Optional: Notification
+      - service: notify.notify
+        data:
+          title: "⚡ Sungrow Control"
+          message: "Inverter set to {{ trigger.to_state.state }}"
+
+    mode: queued
+
+  # === PRICE-AWARE CURTAILMENT ===
+  - id: sungrow_shutdown_when_powerwall_full_and_low_feedin_price
+    alias: "Sungrow: Shutdown when Powerwall full and low/negative feed-in price"
+    description: "Stops solar when Powerwall ≥99%, exporting, and feed-in price ≤$0"
+
+    trigger:
+      # Trigger when all conditions met for 3 minutes
+      - platform: template
+        value_template: >-
+          {{
+            is_state('input_boolean.sungrow_curtailment_enabled', 'on')
+            and states('sensor.powerwall_percentage_charged')|float(0) >= states('input_number.sungrow_curtailment_powerwall_threshold')|float(99)
+            and states('sensor.inverter_meter_power')|float(0) > 100
+            and states('sensor.sandhurst_estate_feed_in_price')|float(0) <= states('input_number.sungrow_curtailment_price_threshold_low')|float(0)
+          }}
+        for:
+          minutes: 3
+
+    condition:
+      # Curtailment must be enabled
+      - condition: state
+        entity_id: input_boolean.sungrow_curtailment_enabled
+        state: 'on'
+
+      # Double-check Powerwall is full
+      - condition: template
+        value_template: >-
+          {{ states('sensor.powerwall_percentage_charged')|float(0) >= states('input_number.sungrow_curtailment_powerwall_threshold')|float(99) }}
+
+      # Exporting to grid (positive meter power)
+      - condition: numeric_state
+        entity_id: sensor.inverter_meter_power
+        above: 100
+
+      # Feed-in price at or below threshold
+      - condition: template
+        value_template: >-
+          {{ states('sensor.sandhurst_estate_feed_in_price')|float(0) <= states('input_number.sungrow_curtailment_price_threshold_low')|float(0) }}
+
+      # Only during daylight
+      - condition: sun
+        after: sunrise
+        before: sunset
+
+      # Not already shutdown
+      - condition: state
+        entity_id: input_select.set_sg_inverter_run_mode
+        state: "Enabled"
+
+    action:
+      # Shutdown via input_select (triggers modbus write)
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.set_sg_inverter_run_mode
+        data:
+          option: "Shutdown"
+
+      # Notification with pricing info
+      - service: notify.notify
+        data:
+          title: "☀️ Solar Curtailment - Low/Negative Price"
+          message: >-
+            Powerwall at {{ states('sensor.powerwall_percentage_charged') }}%.
+            Feed-in price: ${{ states('sensor.sandhurst_estate_feed_in_price') }}/kWh.
+            Shutting down inverter - not worth exporting.
+
+    mode: single
+
+  # === RESTART WHEN CONDITIONS FAVORABLE ===
+  - id: sungrow_restart_when_conditions_favorable
+    alias: "Sungrow: Restart when conditions favorable"
+    description: "Restarts solar when Powerwall needs charge, importing, OR price increases"
+
+    trigger:
+      # 1. Powerwall needs charging
+      - platform: numeric_state
+        entity_id: sensor.powerwall_percentage_charged
+        below: 95
+        for:
+          minutes: 2
+
+      # 2. Stopped exporting (consuming locally)
+      - platform: numeric_state
+        entity_id: sensor.inverter_meter_power
+        below: 50
+        for:
+          minutes: 2
+
+      # 3. Importing from grid (meter power negative - need solar!)
+      - platform: template
+        value_template: >-
+          {{ states('sensor.inverter_meter_power')|float(0) < -100 }}
+        for:
+          minutes: 1
+
+      # 4. Feed-in price increased (worth exporting!)
+      - platform: template
+        value_template: >-
+          {{ states('sensor.sandhurst_estate_feed_in_price')|float(0) > states('input_number.sungrow_restart_price_threshold_high')|float(0.05) }}
+        for:
+          minutes: 2
+
+    condition:
+      # Only restart if currently shutdown
+      - condition: state
+        entity_id: input_select.set_sg_inverter_run_mode
+        state: "Shutdown"
+
+      # Only during daylight
+      - condition: sun
+        after: sunrise
+        before: sunset
+
+      # At least ONE favorable condition must be true
+      - condition: or
+        conditions:
+          # Powerwall needs charging
+          - condition: numeric_state
+            entity_id: sensor.powerwall_percentage_charged
+            below: 95
+
+          # Not exporting much (consuming locally)
+          - condition: numeric_state
+            entity_id: sensor.inverter_meter_power
+            below: 50
+
+          # Importing from grid
+          - condition: template
+            value_template: >-
+              {{ states('sensor.inverter_meter_power')|float(0) < -100 }}
+
+          # Feed-in price is good
+          - condition: template
+            value_template: >-
+              {{ states('sensor.sandhurst_estate_feed_in_price')|float(0) > states('input_number.sungrow_restart_price_threshold_high')|float(0.05) }}
+
+    action:
+      # Restart via input_select (triggers modbus write)
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.set_sg_inverter_run_mode
+        data:
+          option: "Enabled"
+
+      # Notification
+      - service: notify.notify
+        data:
+          title: "☀️ Solar Restarted"
+          message: >-
+            Powerwall at {{ states('sensor.powerwall_percentage_charged') }}%.
+            Feed-in price: ${{ states('sensor.sandhurst_estate_feed_in_price') }}/kWh.
+            Restarting Sungrow inverter.
+
+    mode: single
+
+  # === SAFETY: Always enable at sunset ===
+  - id: sungrow_restart_at_sunset_safety
+    alias: "Sungrow: Restart at sunset (safety)"
+    description: "Ensures solar is enabled at sunset, ready for next day"
+
+    trigger:
+      - platform: sun
+        event: sunset
+        offset: "+00:30:00"
+
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.set_sg_inverter_run_mode
+        data:
+          option: "Enabled"
+
+      - service: notify.notify
+        data:
+          title: "☀️ Solar Reset"
+          message: "Sungrow inverter enabled for tomorrow."
+
+    mode: single
+template:
+  - binary_sensor:
+      # PV Generating indicator
+      - name: PV Generating
+        unique_id: pv_generating
+        device_class: power
+        availability: "{{ has_value('sensor.inverter_total_dc_power') }}"
+        state: "{{ states('sensor.inverter_total_dc_power') | float(0) > 50 }}"
+
+      # Exporting to grid indicator
+      - name: Exporting Power
+        unique_id: exporting_power
+        device_class: power
+        availability: "{{ has_value('sensor.inverter_meter_power') }}"
+        state: "{{ states('sensor.inverter_meter_power') | float(0) > 100 }}"
+
+      # Importing from grid indicator
+      - name: Importing Power
+        unique_id: importing_power
+        device_class: power
+        availability: "{{ has_value('sensor.inverter_meter_power') }}"
+        state: "{{ states('sensor.inverter_meter_power') | float(0) < -100 }}"
+
+  - sensor:
+      # Calculate MPPT1 power
+      - name: Inverter MPPT1 Power
+        unique_id: inverter_mppt1_power
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        availability: >-
+          {{
+          has_value('sensor.inverter_mppt1_voltage')
+          and has_value('sensor.inverter_mppt1_current')
+          }}
+        state: "{{ (states('sensor.inverter_mppt1_voltage') | float * states('sensor.inverter_mppt1_current') | float) | int }}"
+
+      # Calculate MPPT2 power
+      - name: Inverter MPPT2 Power
+        unique_id: inverter_mppt2_power
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        availability: >-
+          {{
+          has_value('sensor.inverter_mppt2_voltage')
+          and has_value('sensor.inverter_mppt2_current')
+          }}
+        state: "{{ (states('sensor.inverter_mppt2_voltage') | float * states('sensor.inverter_mppt2_current') | float) | int }}"
+
+      # Calculate load power (total output + grid power)
+      - name: Inverter Load Power
+        unique_id: inverter_load_power
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.inverter_total_active_power')
+            and has_value('sensor.inverter_meter_power') }}
+        state: "{{ (states('sensor.inverter_total_active_power') | float + states('sensor.inverter_meter_power') | float) | int }}"
+
+      # Decode work state
+      - name: Inverter Work State
+        unique_id: inverter_work_state
+        device_class: enum
+        availability: "{{ has_value('sensor.inverter_work_state_code') }}"
+        state: >-
+          {% if ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x0) %}
+            Run
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x8000) %}
+            Stop
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x1300) %}
+            Key Stop
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x1500) %}
+            Emergency Stop
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x1400) %}
+            Standby
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x1200) %}
+            Initial Standby
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x1600) %}
+            Starting
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x9100) %}
+            Alarm Run
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x8100) %}
+            Derating Run
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x8200) %}
+            Dispatch Run
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x5500) %}
+            Fault
+          {% elif ((states('sensor.inverter_work_state_code') | int(default=0)) == 0x2500) %}
+            Communicate Fault
+          {% else %}
+            Unknown ({{ states('sensor.inverter_work_state_code') }})
+          {% endif %}
+
+      # Decode device type
+      - name: Inverter Device Type
+        unique_id: inverter_device_type
+        availability: "{{ has_value('sensor.inverter_device_type_code') }}"
+        device_class: enum
+        state: >-
+          {% if ((states('sensor.inverter_device_type_code') | int(default=0)) == 0x260F) %}
+            SG5.0RS
+          {% else %}
+            Unknown ({{ '%0x' % (states('sensor.inverter_device_type_code') | int(default=0)) }})
+          {% endif %}
+
+      # Decode run state register (control register 5006)
+      - name: Inverter Run Mode
+        unique_id: inverter_run_mode
+        availability: "{{ has_value('sensor.inverter_run_state_register') }}"
+        device_class: enum
+        state: >-
+          {% set state_val = states('sensor.inverter_run_state_register') | int(default=0) %}
+          {% if state_val == 207 %}
+            Enabled
+          {% elif state_val == 206 %}
+            Shutdown
+          {% else %}
+            Unknown ({{ state_val }})
+          {% endif %}
+
+      # Decode power limit state
+      - name: Inverter Power Limit Enabled
+        unique_id: inverter_power_limit_enabled
+        availability: "{{ has_value('sensor.inverter_power_limit_state') }}"
+        device_class: enum
+        state: >-
+          {% set state_val = states('sensor.inverter_power_limit_state') | int(default=0) %}
+          {% if state_val == 170 %}
+            Enabled
+          {% elif state_val == 85 %}
+            Disabled
+          {% else %}
+            Unknown ({{ state_val }})
+          {% endif %}

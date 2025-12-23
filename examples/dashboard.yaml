@@ -1,0 +1,256 @@
+# Sungrow Price-Aware Curtailment Dashboard
+# Copy this to your Lovelace dashboard configuration
+
+title: Solar & Powerwall
+views:
+  - title: Control
+    icon: mdi:solar-power
+    cards:
+      # Manual Control Card
+      - type: entities
+        title: Inverter Control
+        entities:
+          - entity: input_select.set_sg_inverter_run_mode
+            name: Run Mode
+          - entity: sensor.inverter_run_mode
+            name: Current State
+          - entity: sensor.inverter_work_state
+            name: Work State
+          - entity: sensor.inverter_total_dc_power
+            name: Solar Production
+        state_color: true
+
+      # Curtailment Settings Card
+      - type: entities
+        title: Curtailment Settings
+        entities:
+          - entity: input_boolean.sungrow_curtailment_enabled
+            name: Auto Curtailment
+          - entity: input_number.sungrow_curtailment_price_threshold_low
+            name: Shutdown Below ($/kWh)
+          - entity: input_number.sungrow_restart_price_threshold_high
+            name: Restart Above ($/kWh)
+          - entity: input_number.sungrow_curtailment_powerwall_threshold
+            name: Battery Threshold (%)
+        state_color: true
+
+      # Current Conditions Card
+      - type: entities
+        title: Current Conditions
+        entities:
+          - entity: sensor.powerwall_percentage_charged
+            name: Powerwall
+          - entity: sensor.sandhurst_estate_feed_in_price
+            name: Feed-in Price
+          - entity: sensor.inverter_meter_power
+            name: Grid Power
+          - entity: binary_sensor.pv_generating
+            name: Generating
+          - entity: binary_sensor.exporting_power
+            name: Exporting
+          - entity: binary_sensor.importing_power
+            name: Importing
+        state_color: true
+
+      # Power Gauges
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.inverter_total_dc_power
+            name: Solar
+            min: 0
+            max: 5000
+            needle: true
+            severity:
+              green: 1000
+              yellow: 500
+              red: 0
+
+          - type: gauge
+            entity: sensor.powerwall_percentage_charged
+            name: Battery
+            min: 0
+            max: 100
+            needle: true
+            severity:
+              green: 70
+              yellow: 40
+              red: 20
+
+  - title: Monitoring
+    icon: mdi:chart-line
+    cards:
+      # Power Flow Card
+      - type: entities
+        title: Power Flow
+        entities:
+          - entity: sensor.inverter_total_dc_power
+            name: Solar DC
+          - entity: sensor.inverter_total_active_power
+            name: Solar AC
+          - entity: sensor.inverter_load_power
+            name: Home Load
+          - entity: sensor.inverter_meter_power
+            name: Grid (+ export / - import)
+        state_color: true
+
+      # MPPT Strings
+      - type: entities
+        title: Solar Strings
+        entities:
+          - entity: sensor.inverter_mppt1_power
+            name: String 1 Power
+          - entity: sensor.inverter_mppt1_voltage
+            name: String 1 Voltage
+          - entity: sensor.inverter_mppt1_current
+            name: String 1 Current
+          - entity: sensor.inverter_mppt2_power
+            name: String 2 Power
+          - entity: sensor.inverter_mppt2_voltage
+            name: String 2 Voltage
+          - entity: sensor.inverter_mppt2_current
+            name: String 2 Current
+        state_color: true
+
+      # Energy Production
+      - type: entities
+        title: Energy
+        entities:
+          - entity: sensor.inverter_daily_power_yield_raw
+            name: Today's Generation
+          - entity: sensor.inverter_total_power_yield
+            name: Total Generation
+          - entity: sensor.inverter_total_exported_energy
+            name: Total Exported
+          - entity: sensor.inverter_total_imported_energy
+            name: Total Imported
+        state_color: true
+
+      # Inverter Status
+      - type: entities
+        title: Inverter Info
+        entities:
+          - entity: sensor.inverter_device_type
+            name: Model
+          - entity: sensor.inverter_temperature
+            name: Temperature
+          - entity: sensor.inverter_grid_frequency
+            name: Grid Frequency
+          - entity: sensor.inverter_power_factor
+            name: Power Factor
+          - entity: sensor.inverter_nominal_active_power
+            name: Rated Power
+        state_color: true
+
+      # Power History Graph
+      - type: history-graph
+        title: Power Last 24 Hours
+        hours_to_show: 24
+        entities:
+          - entity: sensor.inverter_total_dc_power
+            name: Solar
+          - entity: sensor.inverter_load_power
+            name: Load
+          - entity: sensor.inverter_meter_power
+            name: Grid
+
+  - title: Pricing
+    icon: mdi:currency-usd
+    cards:
+      # Price & Curtailment Decision
+      - type: markdown
+        title: Curtailment Logic
+        content: |
+          ## Current Status
+          - **Battery:** {{ states('sensor.powerwall_percentage_charged') }}%
+          - **Feed-in:** ${{ states('sensor.sandhurst_estate_feed_in_price') }}/kWh
+          - **Grid:** {{ states('sensor.inverter_meter_power') }}W
+          - **Inverter:** {{ states('sensor.inverter_run_mode') }}
+
+          ---
+
+          ## Curtailment Triggers
+          **Shutdown when ALL true:**
+          - ✅ Battery ≥ {{ states('input_number.sungrow_curtailment_powerwall_threshold') }}%
+          - ✅ Exporting > 100W
+          - ✅ Price ≤ ${{ states('input_number.sungrow_curtailment_price_threshold_low') }}/kWh
+          - ✅ Sustained 3 minutes
+
+          **Restart when ANY true:**
+          - ⚡ Battery < 95%
+          - ⚡ Export < 50W
+          - ⚡ Importing from grid
+          - ⚡ Price > ${{ states('input_number.sungrow_restart_price_threshold_high') }}/kWh
+
+      # Pricing History
+      - type: history-graph
+        title: Feed-in Price Last 24 Hours
+        hours_to_show: 24
+        entities:
+          - entity: sensor.sandhurst_estate_feed_in_price
+            name: Feed-in Price
+
+      # Economic Impact (requires utility meter integration)
+      - type: entities
+        title: Economic Data
+        entities:
+          - entity: sensor.sandhurst_estate_feed_in_price
+            name: Current Price
+          - entity: input_number.sungrow_curtailment_price_threshold_low
+            name: Curtail Below
+          - entity: input_number.sungrow_restart_price_threshold_high
+            name: Restart Above
+        state_color: true
+
+  - title: Automations
+    icon: mdi:robot
+    cards:
+      # Automation Status
+      - type: entities
+        title: Automation Status
+        entities:
+          - entity: automation.sungrow_write_run_mode_to_modbus
+            name: Modbus Control
+          - entity: automation.sungrow_shutdown_when_powerwall_full_and_low_feedin_price
+            name: Auto Shutdown
+          - entity: automation.sungrow_restart_when_conditions_favorable
+            name: Auto Restart
+          - entity: automation.sungrow_restart_at_sunset_safety
+            name: Sunset Safety
+        state_color: true
+
+      # Last Triggered
+      - type: markdown
+        title: Last Automation Events
+        content: |
+          **Shutdown Automation:**
+          Last: {{ as_timestamp(state_attr('automation.sungrow_shutdown_when_powerwall_full_and_low_feedin_price', 'last_triggered')) | timestamp_custom('%Y-%m-%d %H:%M:%S', true) }}
+
+          **Restart Automation:**
+          Last: {{ as_timestamp(state_attr('automation.sungrow_restart_when_conditions_favorable', 'last_triggered')) | timestamp_custom('%Y-%m-%d %H:%M:%S', true) }}
+
+          **Safety Restart:**
+          Last: {{ as_timestamp(state_attr('automation.sungrow_restart_at_sunset_safety', 'last_triggered')) | timestamp_custom('%Y-%m-%d %H:%M:%S', true) }}
+
+      # Quick Actions
+      - type: button
+        name: Force Enable Inverter
+        icon: mdi:power
+        tap_action:
+          action: call-service
+          service: input_select.select_option
+          service_data:
+            entity_id: input_select.set_sg_inverter_run_mode
+            option: Enabled
+
+      - type: button
+        name: Force Shutdown Inverter
+        icon: mdi:power-off
+        tap_action:
+          action: call-service
+          service: input_select.select_option
+          service_data:
+            entity_id: input_select.set_sg_inverter_run_mode
+            option: Shutdown
+        hold_action:
+          action: more-info

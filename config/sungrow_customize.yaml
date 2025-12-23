@@ -1,0 +1,117 @@
+# Entity Customization for Sungrow SG5.0RS
+# Loaded via configuration.yaml: homeassistant: customize: !include sungrow_customize.yaml
+
+# Power Sensors
+sensor.inverter_total_dc_power:
+  friendly_name: "Total DC Power"
+
+sensor.inverter_total_active_power:
+  friendly_name: "Total Active Power"
+
+sensor.inverter_load_power:
+  friendly_name: "Load Power"
+
+sensor.inverter_meter_power_2:
+  friendly_name: "Grid Power"
+
+# MPPT Sensors
+sensor.inverter_mppt1_power:
+  friendly_name: "MPPT1 Power"
+
+sensor.inverter_mppt1_voltage:
+  friendly_name: "MPPT1 Voltage"
+
+sensor.inverter_mppt1_current:
+  friendly_name: "MPPT1 Current"
+
+sensor.inverter_mppt2_power:
+  friendly_name: "MPPT2 Power"
+
+sensor.inverter_mppt2_voltage:
+  friendly_name: "MPPT2 Voltage"
+
+sensor.inverter_mppt2_current:
+  friendly_name: "MPPT2 Current"
+
+# Energy Sensors
+sensor.inverter_daily_power_yield_raw:
+  friendly_name: "Daily PV Generation"
+
+sensor.inverter_total_power_yield:
+  friendly_name: "Total PV Generation"
+
+sensor.inverter_total_exported_energy_2:
+  friendly_name: "Total Exported Energy"
+
+sensor.inverter_total_imported_energy_2:
+  friendly_name: "Total Imported Energy"
+
+# State Sensors
+sensor.inverter_work_state:
+  friendly_name: "Inverter State"
+
+sensor.inverter_device_type:
+  friendly_name: "Device Type"
+
+sensor.inverter_work_state_code:
+  friendly_name: "Work State Code"
+
+sensor.inverter_run_mode:
+  friendly_name: "Run Mode"
+
+# Temperature & Info
+sensor.inverter_temperature_2:
+  friendly_name: "Inverter Temperature"
+
+sensor.inverter_grid_frequency:
+  friendly_name: "Grid Frequency"
+
+sensor.inverter_power_factor:
+  friendly_name: "Power Factor"
+
+# Control Registers
+sensor.inverter_run_state_register:
+  friendly_name: "Run State Register"
+
+sensor.inverter_power_limit_state:
+  friendly_name: "Power Limit State"
+
+sensor.inverter_power_limit_percentage:
+  friendly_name: "Power Limit %"
+
+sensor.inverter_power_limit_enabled:
+  friendly_name: "Power Limit Enabled"
+
+# Binary Sensors
+binary_sensor.pv_generating:
+  friendly_name: "PV Generating"
+  icon: mdi:solar-power
+
+binary_sensor.exporting_power:
+  friendly_name: "Exporting Power"
+  icon: mdi:transmission-tower-export
+
+binary_sensor.importing_power:
+  friendly_name: "Importing Power"
+  icon: mdi:transmission-tower-import
+
+# Control Inputs
+input_select.set_sg_inverter_run_mode:
+  friendly_name: "Inverter Run Mode"
+  icon: mdi:power
+
+input_boolean.sungrow_curtailment_enabled:
+  friendly_name: "Price-Based Curtailment"
+  icon: mdi:currency-usd
+
+input_number.sungrow_curtailment_price_threshold_low:
+  friendly_name: "Shutdown Price Threshold"
+  icon: mdi:currency-usd-off
+
+input_number.sungrow_restart_price_threshold_high:
+  friendly_name: "Restart Price Threshold"
+  icon: mdi:cash-check
+
+input_number.sungrow_curtailment_powerwall_threshold:
+  friendly_name: "Powerwall Curtailment %"
+  icon: mdi:battery-high

@@ -1,0 +1,317 @@
+# Home Assistant Sungrow SG5.0RS inverter integration
+# Ready to use with: modbus: !include integrations/modbus_sungrow.yaml
+
+- name: SungrowSHx
+  type: tcp
+  host: !secret sungrow_modbus_host_ip
+  port: !secret sungrow_modbus_port
+  message_wait_milliseconds: 10
+  delay: 5
+  timeout: 10
+
+  sensors:
+    # === CONTROL REGISTERS (Read current state) ===
+    - name: Inverter Run State Register
+      unique_id: inverter_run_state_register
+      device_address: !secret sungrow_modbus_slave
+      address: 5005
+      input_type: holding
+      data_type: uint16
+      scan_interval: 30
+
+    - name: Inverter Power Limit State
+      unique_id: inverter_power_limit_state
+      device_address: !secret sungrow_modbus_slave
+      address: 5006
+      input_type: holding
+      data_type: uint16
+      scan_interval: 60
+
+    - name: Inverter Power Limit Percentage
+      unique_id: inverter_power_limit_percentage
+      device_address: !secret sungrow_modbus_slave
+      address: 5007
+      input_type: holding
+      data_type: uint16
+      precision: 1
+      unit_of_measurement: "%"
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 60
+
+    # === Basic Inverter Info ===
+    - name: Inverter Device Type Code
+      unique_id: inverter_device_type_code
+      device_address: !secret sungrow_modbus_slave
+      address: 4999
+      input_type: input
+      data_type: uint16
+      scan_interval: 1200
+
+    - name: Inverter Nominal Active Power
+      unique_id: inverter_nominal_active_power
+      device_address: !secret sungrow_modbus_slave
+      address: 5000
+      input_type: input
+      data_type: uint16
+      precision: 1
+      unit_of_measurement: kW
+      device_class: power
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 1200
+
+    - name: Inverter Work State Code
+      unique_id: inverter_work_state_code
+      device_address: !secret sungrow_modbus_slave
+      address: 5037
+      input_type: input
+      data_type: uint16
+      scan_interval: 60
+
+    # === Energy Production ===
+    - name: Inverter Daily Power Yield Raw
+      unique_id: inverter_daily_power_yield_raw
+      device_address: !secret sungrow_modbus_slave
+      address: 5002
+      input_type: input
+      data_type: uint16
+      precision: 1
+      unit_of_measurement: kWh
+      device_class: energy
+      state_class: total_increasing
+      scale: 0.1
+      scan_interval: 60
+
+    - name: Inverter Total Power Yield
+      unique_id: inverter_total_power_yield
+      device_address: !secret sungrow_modbus_slave
+      address: 5003
+      input_type: input
+      data_type: uint32
+      swap: word
+      unit_of_measurement: kWh
+      precision: 1
+      device_class: energy
+      state_class: total_increasing
+      scale: 1
+      scan_interval: 600
+
+    - name: Inverter Temperature
+      unique_id: inverter_inverter_temperature
+      device_address: !secret sungrow_modbus_slave
+      address: 5007
+      input_type: input
+      data_type: int16
+      precision: 1
+      unit_of_measurement: °C
+      device_class: temperature
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 600
+
+    - name: Inverter Total Running Time
+      unique_id: inverter_total_running_time
+      device_address: !secret sungrow_modbus_slave
+      address: 5005
+      input_type: input
+      data_type: uint32
+      swap: word
+      precision: 0
+      unit_of_measurement: h
+      device_class: duration
+      state_class: measurement
+      scale: 1
+      scan_interval: 600
+
+    - name: Inverter Daily Running Time
+      unique_id: inverter_daily_running_time
+      device_address: !secret sungrow_modbus_slave
+      address: 5112
+      input_type: input
+      data_type: uint16
+      precision: 0
+      unit_of_measurement: min
+      device_class: duration
+      state_class: measurement
+      scan_interval: 600
+
+    # === MPPTs / DC Power ===
+    - name: Inverter MPPT1 Voltage
+      unique_id: inverter_mppt1_voltage
+      device_address: !secret sungrow_modbus_slave
+      address: 5010
+      input_type: input
+      data_type: uint16
+      precision: 1
+      unit_of_measurement: V
+      device_class: voltage
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 15
+
+    - name: Inverter MPPT1 Current
+      unique_id: inverter_mppt1_current
+      device_address: !secret sungrow_modbus_slave
+      address: 5011
+      input_type: input
+      data_type: uint16
+      precision: 2
+      unit_of_measurement: A
+      device_class: current
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 15
+
+    - name: Inverter MPPT2 Voltage
+      unique_id: inverter_mppt2_voltage
+      device_address: !secret sungrow_modbus_slave
+      address: 5012
+      input_type: input
+      data_type: uint16
+      precision: 1
+      unit_of_measurement: V
+      device_class: voltage
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 15
+
+    - name: Inverter MPPT2 Current
+      unique_id: inverter_mppt2_current
+      device_address: !secret sungrow_modbus_slave
+      address: 5013
+      input_type: input
+      data_type: uint16
+      precision: 2
+      unit_of_measurement: A
+      device_class: current
+      state_class: measurement
+      scale: 0.1
+      scan_interval: 15
+
+    - name: Inverter Total DC Power
+      unique_id: inverter_total_dc_power
+      device_address: !secret sungrow_modbus_slave
+      address: 5016
+      input_type: input
+      data_type: uint32
+      swap: word
+      precision: 0
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      scale: 1
+      scan_interval: 5
+
+    # === AC Power / Grid ===
+    - name: Inverter Total Apparent Power
+      unique_id: inverter_total_apparent_power
+      device_address: !secret sungrow_modbus_slave
+      address: 5008
+      input_type: input
+      data_type: uint32
+      swap: word
+      unit_of_measurement: VA
+      precision: 0
+      device_class: apparent_power
+      state_class: measurement
+      scale: 1
+      scan_interval: 60
+
+    - name: Inverter Total Active Power
+      unique_id: inverter_total_active_power
+      device_address: !secret sungrow_modbus_slave
+      address: 5030
+      input_type: input
+      data_type: uint32
+      swap: word
+      unit_of_measurement: W
+      precision: 0
+      device_class: power
+      state_class: measurement
+      scale: 1
+      scan_interval: 5
+
+    - name: Inverter Total Reactive Power
+      unique_id: inverter_total_reactive_power
+      device_address: !secret sungrow_modbus_slave
+      address: 5032
+      input_type: input
+      data_type: int32
+      swap: word
+      unit_of_measurement: var
+      precision: 0
+      device_class: reactive_power
+      state_class: measurement
+      scale: 1
+      scan_interval: 60
+
+    - name: Inverter Power Factor
+      unique_id: inverter_power_factor
+      device_address: !secret sungrow_modbus_slave
+      address: 5034
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "%"
+      precision: 3
+      device_class: power_factor
+      state_class: measurement
+      scale: 0.001
+      scan_interval: 60
+
+    - name: Inverter Grid Frequency
+      unique_id: inverter_grid_frequency
+      device_address: !secret sungrow_modbus_slave
+      address: 5147
+      input_type: input
+      data_type: uint16
+      unit_of_measurement: "Hz"
+      precision: 2
+      device_class: frequency
+      state_class: measurement
+      scale: 0.01
+      scan_interval: 60
+
+    # === Energy Meter / Import-Export ===
+    - name: Inverter Total Exported Energy
+      unique_id: inverter_total_exported_energy
+      device_address: !secret sungrow_modbus_slave
+      address: 5094
+      input_type: input
+      data_type: uint32
+      swap: word
+      precision: 1
+      unit_of_measurement: kWh
+      device_class: energy
+      state_class: total_increasing
+      scale: 0.1
+      scan_interval: 60
+
+    - name: Inverter Total Imported Energy
+      unique_id: inverter_total_imported_energy
+      device_address: !secret sungrow_modbus_slave
+      address: 5098
+      input_type: input
+      data_type: uint32
+      swap: word
+      precision: 1
+      unit_of_measurement: kWh
+      device_class: energy
+      state_class: total_increasing
+      scale: 0.1
+      scan_interval: 60
+
+    - name: Inverter Meter Power
+      unique_id: inverter_meter_power
+      device_address: !secret sungrow_modbus_slave
+      address: 5082
+      input_type: input
+      data_type: int32
+      swap: word
+      precision: 0
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      scale: 1
+      scan_interval: 5
+
