@@ -52,7 +52,7 @@ cp config/sungrow_customize.yaml /config/
 Add to `/config/secrets.yaml`:
 
 ```yaml
-sungrow_modbus_host_ip: 192.168.1.145  # Your inverter IP
+sungrow_modbus_host_ip: 192.168.x.x  # Your inverter IP
 sungrow_modbus_port: 502
 sungrow_modbus_slave: 1
 ```
@@ -400,11 +400,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🗺️ Roadmap
 
 - [ ] Support for additional Sungrow models (SG3.0RS, SG6.0RS)
-- [ ] Integration with EMHASS for optimal scheduling
 - [ ] Historical analytics dashboard
 - [ ] Mobile app integration
 - [ ] Multi-inverter support
-- [ ] Cloud API alternative to modbus
 
 ## ⚠️ Disclaimer
 
